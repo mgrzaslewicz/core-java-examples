@@ -1,0 +1,1 @@
+Example of problems and solutions related to concurrency and parallelism and java memory model
