@@ -4,6 +4,9 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
+
+import static com.autocoin.cap.TimeMeasure.startThreadsAndWaitToFinish;
 import static java.util.stream.IntStream.range;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
@@ -12,14 +15,11 @@ public class VolatileTests {
     private volatile int sum = 0;
 
     @Test
-    public void shouldUsingVolatileIntNotSolveTheAtomicityProblem() throws InterruptedException {
+    public void shouldUsingVolatileIntNotSolveTheAtomicityProblem() {
         var numIterations = 10_000;
         var t1 = new Thread(() -> range(0, numIterations).forEach((i) -> sum++));
         var t2 = new Thread(() -> range(0, numIterations).forEach((i) -> sum++));
-        t1.start();
-        t2.start();
-        t1.join();
-        t2.join();
+        startThreadsAndWaitToFinish(List.of(t1, t2));
 
         logger.info("sum={}", sum);
 
