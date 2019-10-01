@@ -20,26 +20,24 @@ public class SynchronizedVsLocksTests {
     @Test
     public void shouldLockBeSlowerThanSynchronized() {
         var numIterations = 5_000_000;
-        var t1Synchronized = new Thread(() -> range(0, numIterations).forEach((i) -> {
-            synchronized (this) {
-                sumWithSynchronized++;
-            }
-        }));
-        var t2Synchronized = new Thread(() -> range(0, numIterations).forEach((i) -> {
-            synchronized (this) {
-                sumWithSynchronized++;
-            }
-        }));
-        var t3Lock = new Thread(() -> range(0, numIterations).forEach((i) -> {
+        Runnable increaseSumWithSynchronized = () -> {
+            range(0, numIterations).forEach((i) -> {
+                synchronized (this) {
+                    sumWithSynchronized++;
+                }
+            });
+        };
+        var t1Synchronized = new Thread(increaseSumWithSynchronized);
+        var t2Synchronized = new Thread(increaseSumWithSynchronized);
+
+        Runnable increaseSumWithLock = () -> range(0, numIterations).forEach((i) -> {
             reentrantLock.lock();
             sumWithLock++;
             reentrantLock.unlock();
-        }));
-        var t4Lock = new Thread(() -> range(0, numIterations).forEach((i) -> {
-            reentrantLock.lock();
-            sumWithLock++;
-            reentrantLock.unlock();
-        }));
+        });
+        var t3Lock = new Thread(increaseSumWithLock);
+        var t4Lock = new Thread(increaseSumWithLock);
+
         var threadsWithSynchronized = List.of(t1Synchronized, t2Synchronized);
         var threadsWithLock = List.of(t3Lock, t4Lock);
 
