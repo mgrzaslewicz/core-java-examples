@@ -6,6 +6,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.autocoin.cap.TimeMeasure.measureThreadsExecutionTimeMillis;
@@ -60,6 +63,24 @@ public class ThreadStartAndFinishTest {
         logger.info("millisWith2Threads={}", millisWith2Threads);
         logger.info("millisWithoutThreads={}", millisWithoutThreads);
         assertTrue(millisWith2Threads > millisWithoutThreads);
+    }
+
+    @Test
+    public void shouldUseUncaughtExceptionHandlerToPreventStoppingThread() throws InterruptedException {
+        // given
+        var t1 = new Thread(() -> {
+            throw new RuntimeException("Failing on purpose");
+        }, "Thread throwing an exception during running");
+        var latch = new CountDownLatch(1);
+        t1.setUncaughtExceptionHandler((thread, throwable) -> {
+            logger.error("Exception occured in thread", throwable);
+            assertTrue(thread.getState() == Thread.State.RUNNABLE);
+            latch.countDown();
+        });
+        // when
+        t1.start();
+        // then
+        latch.await(100, TimeUnit.MILLISECONDS);
     }
 
 }
