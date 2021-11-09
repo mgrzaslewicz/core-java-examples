@@ -1,6 +1,8 @@
 package com.autocoin.cap;
 
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 public class TimeMeasure {
 
@@ -19,6 +21,16 @@ public class TimeMeasure {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
+    }
+
+    public static void waitToFinish(List<Future> jobs) {
+        jobs.forEach(it -> {
+            try {
+                it.get();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
     }
 
     public static long measureThreadsExecutionTimeMillis(List<Thread> threadsToStart) {
