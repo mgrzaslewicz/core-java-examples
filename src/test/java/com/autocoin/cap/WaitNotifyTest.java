@@ -7,13 +7,14 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class WaitNotifyTest {
     private static final Logger logger = LoggerFactory.getLogger(WaitNotifyTest.class);
 
-    class LackingSynchronizeForMonitor {
+    private static class LackingSynchronizeForMonitor {
         private Object lock = new Object();
 
         public void doSomethingWithoutSynchronizedBlockAroundNotify() {
@@ -21,7 +22,7 @@ public class WaitNotifyTest {
         }
     }
 
-    class SimpleBlockingQueue {
+    private static class SimpleBlockingQueue {
         private Object lock = new Object();
         private ConcurrentLinkedDeque<String> list = new ConcurrentLinkedDeque<>(); // non-concurrent LinkedList will fail
         private CountDownLatch startedWaitingLatch;
@@ -85,5 +86,21 @@ public class WaitNotifyTest {
 
             assertEquals(0, gotResultLatch.getCount());
         }
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenNotifiedFromDifferentThread() {
+        // given
+        final var t1Lock = new Object();
+        final var t1 = new Thread(() -> {
+            try {
+                t1Lock.wait();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        t1.start();
+        // then
+        assertThatThrownBy(t1Lock::notify).isInstanceOf(IllegalMonitorStateException.class);
     }
 }
