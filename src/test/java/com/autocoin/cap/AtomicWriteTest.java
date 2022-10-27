@@ -17,7 +17,7 @@ public class AtomicWriteTest {
     private volatile int sum = 0;
 
     @Test
-    public void shouldIncreasingBeBrokenWhenNotUsingAtomicInteger() throws InterruptedException {
+    public void shouldIncreasingBeBrokenWhenNotUsingAtomicInteger() {
         var sumHolder = new int[]{0};
         var numIterations = 15_000;
         Runnable increaseSum = () -> {
