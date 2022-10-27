@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 import static com.autocoin.cap.TimeMeasure.waitToFinish;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
-public class VolatileVsSynchronized {
+public class VolatileVsSynchronizedTest {
 
     private class WithVolatileField {
         private volatile long counter = 0;

@@ -1,11 +1,10 @@
 package com.autocoin.cap;
 
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.autocoin.cap.TimeMeasure.startThreadsAndWaitToFinish;
 import static java.util.stream.IntStream.range;
