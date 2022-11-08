@@ -1,5 +1,6 @@
 package com.autocoin.cap.completion;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -8,10 +9,15 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,41 +25,41 @@ import org.slf4j.LoggerFactory;
 public class FirstSuccessfulTaskCompletionService<T> {
     private static final Logger logger = LoggerFactory.getLogger(FirstSuccessfulTaskCompletionService.class);
 
-    private final ExecutorService executor;
+    private final Supplier<ExecutorService> executorProvider;
+    private final Function<ExecutorService, CompletionService<T>> completionServiceProvider;
     private final Instant deadline;
-    private final List<DescribedTask<T>> tasks;
-    private final CurrentTimeProvider currentTimeProvider;
-    private final TaskResultJudge<T> taskResultJudge;
+    private final Clock clock;
+    private final Predicate<DescribedTaskResult<T>> taskResultJudge;
 
-    private FirstSuccessfulTaskCompletionService(ExecutorService executor,
+    private FirstSuccessfulTaskCompletionService(Supplier<ExecutorService> executorProvider,
+                                                 Function<ExecutorService, CompletionService<T>> completionServiceProvider,
                                                  Instant deadline,
-                                                 List<DescribedTask<T>> tasks,
-                                                 CurrentTimeProvider currentTimeProvider,
-                                                 TaskResultJudge taskResultJudge) {
-        this.executor = executor;
+                                                 Clock clock,
+                                                 Predicate<DescribedTaskResult<T>> taskResultJudge) {
+        this.executorProvider = executorProvider;
+        this.completionServiceProvider = completionServiceProvider;
         this.deadline = deadline;
-        this.tasks = tasks;
-        this.currentTimeProvider = currentTimeProvider;
+        this.clock = clock;
         this.taskResultJudge = taskResultJudge;
     }
 
-    private final static Instant noDeadline = Instant.MAX;
-    private boolean isWaitingForSuccessfulResult = true;
-    private int numberOfTasksAlreadyFinished = 0;
 
     private Long millisecondsToDeadline() {
-        if (deadline == noDeadline) {
+        if (deadline == null) {
             return Long.MAX_VALUE;
         } else {
-            return Duration.between(currentTimeProvider.now(), deadline).toMillis();
+            return Duration.between(clock.instant(), deadline).toMillis();
         }
     }
 
-    private Iterator<TaskResultJudgement<T>> toIterator(ExecutorCompletionService<T> completionService, Map<Future<T>, DescribedTask<T>> futuresWithTasks) {
+    private Iterator<TaskResultJudgement<T>> toIterator(CompletionService<T> completionService, Map<Future<T>, SubmittedTask<T>> futuresWithTasks) {
         return new Iterator<>() {
+            private boolean isWaitingForSuccessfulResult = true;
+            private int numberOfTasksAlreadyFinished = 0;
+
             @Override
             public boolean hasNext() {
-                return isWaitingForSuccessfulResult && numberOfTasksAlreadyFinished < tasks.size();
+                return isWaitingForSuccessfulResult && numberOfTasksAlreadyFinished < futuresWithTasks.size();
             }
 
             @Override
@@ -61,10 +67,13 @@ public class FirstSuccessfulTaskCompletionService<T> {
                 try {
                     final var completedFuture = completionService.poll(millisecondsToDeadline(), TimeUnit.MILLISECONDS);
                     numberOfTasksAlreadyFinished++;
-                    final var taskResult = completedFuture.get(millisecondsToDeadline(), TimeUnit.MILLISECONDS);
-                    final var task = futuresWithTasks.get(completedFuture);
-                    final var describedTaskResult = new DescribedTaskResult<T>(task, taskResult);
-                    final var taskResultJudgement = new TaskResultJudgement<T>(taskResultJudge.isSuccessful(describedTaskResult), describedTaskResult.task, describedTaskResult.result);
+                    if (completedFuture == null) {
+                        return null;
+                    }
+                    final var taskResult = completedFuture.get();
+                    final var submittedTask = futuresWithTasks.get(completedFuture);
+                    final var describedTaskResult = new DescribedTaskResult<T>(submittedTask.describedTask, taskResult);
+                    final var taskResultJudgement = new TaskResultJudgement<T>(taskResultJudge.test(describedTaskResult), submittedTask.describedTask, taskResult, submittedTask.submitOrder);
                     if (!taskResultJudgement.isSuccessful) {
                         logger.info("Task '{}' failed", taskResultJudgement.task.description);
                     }
@@ -79,20 +88,33 @@ public class FirstSuccessfulTaskCompletionService<T> {
         };
     }
 
-    public TaskResults<T> waitForResults() {
-        final var completionService = new ExecutorCompletionService<T>(executor);
-        final Map<Future<T>, DescribedTask<T>> futuresWithTasks = submitTasks(completionService);
+    /**
+     * Shuts down the executor when not waiting for a successful result anymore or all tasks have finished.
+     *
+     * @param tasks
+     * @return tasks and their results
+     */
+    public TaskResults<T> waitForResults(List<DescribedTask<T>> tasks) {
+        if (tasks.isEmpty()) {
+            return new TaskResults<>(null, List.of(), List.of());
+        }
+        final var executor = executorProvider.get();
+        final var completionService = completionServiceProvider.apply(executor);
+        final Map<Future<T>, SubmittedTask<T>> futuresWithTasks = submitTasks(tasks, completionService);
 
         final var taskResultJudgements = new ArrayList<TaskResultJudgement<T>>();
-        toIterator(completionService, futuresWithTasks).forEachRemaining(taskResultJudgements::add);
+        toIterator(completionService, futuresWithTasks).forEachRemaining(it -> {
+            if (it != null) taskResultJudgements.add(it);
+        });
+        executor.shutdown();
 
-        final var skippedTasks = getSkippedInSubmissionOrder(taskResultJudgements);
+        final var skippedTasks = getSkippedInSubmissionOrder(tasks, taskResultJudgements);
         logSkippedTasks(skippedTasks);
 
         return tasksResults(taskResultJudgements, skippedTasks);
     }
 
-    private List<DescribedTask<T>> getSkippedInSubmissionOrder(List<TaskResultJudgement<T>> taskResultJudgements) {
+    private List<DescribedTask<T>> getSkippedInSubmissionOrder(List<DescribedTask<T>> tasks, List<TaskResultJudgement<T>> taskResultJudgements) {
         return tasks.stream()
                 .filter(describedTask -> taskResultJudgements.stream().noneMatch(taskResultJudgement -> taskResultJudgement.task == describedTask))
                 .collect(Collectors.toList());
@@ -104,9 +126,13 @@ public class FirstSuccessfulTaskCompletionService<T> {
         }
     }
 
-    private Map<Future<T>, DescribedTask<T>> submitTasks(ExecutorCompletionService<T> completionService) {
-        final var result = new LinkedHashMap<Future<T>, DescribedTask<T>>();
-        tasks.stream().forEach(describedTask -> result.put(completionService.submit(describedTask.task), describedTask));
+    private Map<Future<T>, SubmittedTask<T>> submitTasks(List<DescribedTask<T>> tasks, CompletionService<T> completionService) {
+        final var result = new LinkedHashMap<Future<T>, SubmittedTask<T>>();
+        var taskIndex = 0;
+        for (final var task : tasks) {
+            final var future = completionService.submit(task.task);
+            result.put(future, new SubmittedTask<>(task, taskIndex++));
+        }
         return result;
     }
 
@@ -122,12 +148,11 @@ public class FirstSuccessfulTaskCompletionService<T> {
     public record DescribedTask<T>(String description, Callable<T> task) {
     }
 
-    public interface CurrentTimeProvider {
-        Instant now();
+    private record SubmittedTask<T>(DescribedTask<T> describedTask, int submitOrder) {
     }
 
-    public record TaskResultJudgement<T>(boolean isSuccessful, DescribedTask<T> task, T result) {
 
+    public record TaskResultJudgement<T>(boolean isSuccessful, DescribedTask<T> task, T result, int submitOrder) {
     }
 
     public record TaskResults<T>(TaskResultJudgement<T> firstSuccessfulTaskResult, List<TaskResultJudgement<T>> failed, List<DescribedTask<T>> skippedWaitingForResults) {
@@ -136,44 +161,50 @@ public class FirstSuccessfulTaskCompletionService<T> {
     public record DescribedTaskResult<T>(DescribedTask<T> task, T result) {
     }
 
-    public interface TaskResultJudge<T> {
-        boolean isSuccessful(DescribedTaskResult<T> describedTaskResult);
-    }
-
     public static final class Builder<T> {
-        private final ExecutorService executor;
-        private Instant deadline = noDeadline;
-        private List<DescribedTask<T>> tasks = List.of();
-        private CurrentTimeProvider currentTimeProvider = Instant::now;
-        private TaskResultJudge taskResultJudge;
+        private Supplier<ExecutorService> executorProvider = Executors::newCachedThreadPool;
+        private Function<ExecutorService, CompletionService<T>> completionProvider = ExecutorCompletionService::new;
+        private Instant deadline = null;
+        private Clock clock = Clock.systemDefaultZone();
+        private Predicate<DescribedTaskResult<T>> taskResultJudge;
 
-        public Builder(ExecutorService executor) {
-            this.executor = executor;
-        }
 
         public Builder<T> withDeadline(Instant deadline) {
+            assert deadline != null;
             this.deadline = deadline;
             return this;
         }
 
-        public Builder<T> withTasks(List<DescribedTask<T>> tasks) {
-            this.tasks = tasks;
+        public Builder<T> withExecutorProvider(Supplier<ExecutorService> executorProvider) {
+            assert executorProvider != null;
+            this.executorProvider = executorProvider;
             return this;
         }
 
-        public Builder<T> withCurrentTimeProvider(CurrentTimeProvider currentTimeProvider) {
-            this.currentTimeProvider = currentTimeProvider;
+        public Builder<T> withCompletionProvider(Function<ExecutorService, CompletionService<T>> completionProvider) {
+            assert completionProvider != null;
+            this.completionProvider = completionProvider;
             return this;
         }
 
-        public Builder<T> withTaskResultJudge(TaskResultJudge<T> taskResultJudge) {
+        public Builder<T> noDeadline() {
+            this.deadline = null;
+            return this;
+        }
+
+        public Builder<T> withClock(Clock clock) {
+            this.clock = clock;
+            return this;
+        }
+
+        public Builder<T> withTaskResultJudge(Predicate<DescribedTaskResult<T>> taskResultJudge) {
             this.taskResultJudge = taskResultJudge;
             return this;
         }
 
         public FirstSuccessfulTaskCompletionService<T> build() {
             assert taskResultJudge != null;
-            return new FirstSuccessfulTaskCompletionService<T>(executor, deadline, tasks, currentTimeProvider, taskResultJudge);
+            return new FirstSuccessfulTaskCompletionService<>(executorProvider, completionProvider, deadline, clock, taskResultJudge);
         }
     }
 }
