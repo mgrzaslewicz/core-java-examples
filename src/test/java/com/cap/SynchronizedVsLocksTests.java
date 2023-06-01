@@ -4,47 +4,56 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
 
 import static com.cap.ExecutionDuration.measureExecutionDuration;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class SynchronizedVsLocksTests {
     private static final Logger logger = LoggerFactory.getLogger(SynchronizedVsLocksTests.class);
-    private volatile int sumWithSynchronized = 0;
-    private volatile int sumWithLock = 0;
-    private ReentrantLock reentrantLock = new ReentrantLock();
 
     @Test
     public void shouldLockBeSlowerThanSynchronized() {
-        var numIterations = 5_000_000;
-        Runnable increaseSumWithSynchronized = () -> range(0, numIterations).forEach((i) -> {
-            synchronized (this) {
-                sumWithSynchronized++;
+        var iterationsCount = 5_000_000;
+        var threadsCount = 2;
+
+        AtomicInteger sumWithSynchronized = new AtomicInteger();
+        Runnable increaseSumWithSynchronized = () -> {
+            for (int i = 0; i < iterationsCount; i++) {
+                synchronized (this) {
+                    sumWithSynchronized.getAndIncrement();
+                }
             }
-        });
-        var t1Synchronized = new Thread(increaseSumWithSynchronized);
-        var t2Synchronized = new Thread(increaseSumWithSynchronized);
+        };
+        var threadsUsingSynchronized = range(0, threadsCount)
+                .mapToObj((i) -> new Thread(increaseSumWithSynchronized))
+                .collect(Collectors.toList());
 
-        Runnable increaseSumWithLock = () -> range(0, numIterations).forEach((i) -> {
-            reentrantLock.lock();
-            sumWithLock++;
-            reentrantLock.unlock();
-        });
-        var t3Lock = new Thread(increaseSumWithLock);
-        var t4Lock = new Thread(increaseSumWithLock);
+        AtomicInteger sumWithLock = new AtomicInteger();
+        var reentrantLock = new ReentrantLock();
+        Runnable increaseSumWithLock = () -> {
+            for (int i = 0; i < iterationsCount; i++) {
+                reentrantLock.lock();
+                sumWithLock.getAndIncrement();
+                reentrantLock.unlock();
+            }
+        };
+        var threadsUsingLock = range(0, threadsCount)
+                .mapToObj((i) -> new Thread(increaseSumWithLock))
+                .collect(Collectors.toList());
 
 
-        var durationSynchronized = measureExecutionDuration(t1Synchronized, t2Synchronized);
-        var durationLock = measureExecutionDuration(t3Lock, t4Lock);
+        var durationSynchronized = measureExecutionDuration(threadsUsingSynchronized);
+        var durationLock = measureExecutionDuration(threadsUsingLock);
 
         logger.info("sumWithSynchronized={}, took {} ms", sumWithSynchronized, durationSynchronized);
         logger.info("sumWithLock={}, took {} ms", sumWithLock, durationLock);
 
-        assertEquals(numIterations * 2, sumWithSynchronized);
-        assertEquals(numIterations * 2, sumWithLock);
+        assertThat(sumWithSynchronized.get()).isEqualTo(iterationsCount * threadsCount);
+        assertThat(sumWithLock.get()).isEqualTo(iterationsCount * threadsCount);
         assertThat(durationLock).isGreaterThan(durationSynchronized);
     }
 
