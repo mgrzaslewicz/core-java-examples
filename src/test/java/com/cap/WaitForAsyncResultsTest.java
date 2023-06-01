@@ -1,4 +1,4 @@
-package com.autocoin.cap;
+package com.cap;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;

@@ -1,4 +1,4 @@
-package com.autocoin.cap;
+package com.cap;
 
 import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static com.autocoin.cap.TimeMeasure.measureThreadsExecutionTimeMillis;
 import static java.util.stream.IntStream.range;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -39,8 +38,8 @@ public class SynchronizedVsLocksTests {
         var t4Lock = new Thread(increaseSumWithLock);
 
 
-        var millisSynchronized = measureThreadsExecutionTimeMillis(List.of(t1Synchronized, t2Synchronized));
-        var millisLock = measureThreadsExecutionTimeMillis(List.of(t3Lock, t4Lock));
+        var millisSynchronized = TimeMeasure.measureThreadsExecutionTimeMillis(List.of(t1Synchronized, t2Synchronized));
+        var millisLock = TimeMeasure.measureThreadsExecutionTimeMillis(List.of(t3Lock, t4Lock));
 
         logger.info("sumWithSynchronized={}, took {} ms", sumWithSynchronized, millisSynchronized);
         logger.info("sumWithLock={}, took {} ms", sumWithLock, millisLock);

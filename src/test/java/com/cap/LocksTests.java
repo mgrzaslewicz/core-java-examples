@@ -1,4 +1,4 @@
-package com.autocoin.cap;
+package com.cap;
 
 import java.util.HashMap;
 import java.util.concurrent.ExecutorService;

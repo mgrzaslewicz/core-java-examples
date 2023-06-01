@@ -1,7 +1,7 @@
-package com.autocoin.cap;
+package com.cap;
 
-import com.autocoin.cap.completion.FirstSuccessfulTaskCompletionService;
-import com.autocoin.cap.completion.FirstSuccessfulTaskCompletionService.DescribedTask;
+import com.cap.completion.FirstSuccessfulTaskCompletionService;
+import com.cap.completion.FirstSuccessfulTaskCompletionService.DescribedTask;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import org.junit.jupiter.api.Test;

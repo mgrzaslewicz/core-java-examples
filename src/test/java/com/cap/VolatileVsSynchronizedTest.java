@@ -1,4 +1,4 @@
-package com.autocoin.cap;
+package com.cap;
 
 import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
@@ -6,7 +6,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import org.junit.jupiter.api.Test;
 
-import static com.autocoin.cap.TimeMeasure.waitToFinish;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 public class VolatileVsSynchronizedTest {
@@ -31,7 +30,7 @@ public class VolatileVsSynchronizedTest {
                     })
             );
         }
-        waitToFinish(jobs);
+        TimeMeasure.waitToFinish(jobs);
         // then
         assertNotEquals(expectedSum, withVolatileField.counter);
     }

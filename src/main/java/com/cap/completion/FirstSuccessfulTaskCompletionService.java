@@ -1,4 +1,4 @@
-package com.autocoin.cap.completion;
+package com.cap.completion;
 
 import java.time.Clock;
 import java.time.Duration;

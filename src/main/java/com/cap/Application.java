@@ -1,4 +1,4 @@
-package com.autocoin.cap;
+package com.cap;
 
 public class Application {
 

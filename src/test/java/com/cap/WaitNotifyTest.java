@@ -1,4 +1,4 @@
-package com.autocoin.cap;
+package com.cap;
 
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.CountDownLatch;

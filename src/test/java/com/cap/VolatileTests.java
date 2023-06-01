@@ -1,4 +1,4 @@
-package com.autocoin.cap;
+package com.cap;
 
 import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
@@ -8,7 +8,6 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static com.autocoin.cap.TimeMeasure.waitToFinish;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 public class VolatileTests {
@@ -35,7 +34,7 @@ public class VolatileTests {
                     })
             );
         }
-        waitToFinish(jobs);
+        TimeMeasure.waitToFinish(jobs);
         // then
         logger.info("counterA={}", withVolatileField.counterA);
         logger.info("counterB={}", withVolatileField.counterB); // TODO find out why always counterB > counterA

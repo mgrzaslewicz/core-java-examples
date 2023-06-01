@@ -1,4 +1,4 @@
-package com.autocoin.cap;
+package com.cap;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static com.autocoin.cap.TimeMeasure.startThreadsAndWaitToFinish;
 import static java.util.stream.IntStream.range;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -24,7 +23,7 @@ public class AtomicWriteTest {
                 sumHolder[0]++;
             }
         };
-        startThreadsAndWaitToFinish(List.of(new Thread(increaseSum), new Thread(increaseSum)));
+        TimeMeasure.startThreadsAndWaitToFinish(List.of(new Thread(increaseSum), new Thread(increaseSum)));
         logger.info("sum={}", sumHolder[0]);
         assertNotEquals(numIterations * 2, sumHolder[0]);
     }
@@ -35,7 +34,7 @@ public class AtomicWriteTest {
         var numIterations = 15_000;
         var t1 = new Thread(() -> range(0, numIterations).forEach((i) -> sum.incrementAndGet()));
         var t2 = new Thread(() -> range(0, numIterations).forEach((i) -> sum.incrementAndGet()));
-        startThreadsAndWaitToFinish(List.of(t1, t2));
+        TimeMeasure.startThreadsAndWaitToFinish(List.of(t1, t2));
         logger.info("sum={}", sum.get());
         assertEquals(numIterations * 2, sum.get());
     }
@@ -45,7 +44,7 @@ public class AtomicWriteTest {
         var numIterations = 10_000;
         var t1 = new Thread(() -> range(0, numIterations).forEach((i) -> sum++));
         var t2 = new Thread(() -> range(0, numIterations).forEach((i) -> sum++));
-        startThreadsAndWaitToFinish(List.of(t1, t2));
+        TimeMeasure.startThreadsAndWaitToFinish(List.of(t1, t2));
 
         logger.info("sum={}", sum);
 

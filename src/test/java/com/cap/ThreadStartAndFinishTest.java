@@ -1,4 +1,4 @@
-package com.autocoin.cap;
+package com.cap;
 
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -9,8 +9,6 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static com.autocoin.cap.TimeMeasure.measureThreadsExecutionTimeMillis;
-import static com.autocoin.cap.TimeMeasure.measureTimeMillis;
 import static java.util.stream.IntStream.range;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -58,8 +56,8 @@ public class ThreadStartAndFinishTest {
         var sumWithoutThreads = new AtomicInteger(0);
         var numIterations = 1_000_000;
         Runnable increaseInteger = () -> range(0, numIterations).forEach((i) -> sumWithThreads.incrementAndGet());
-        var millisWith2Threads = measureThreadsExecutionTimeMillis(List.of(new Thread(increaseInteger), new Thread(increaseInteger)));
-        var millisWithoutThreads = measureTimeMillis(() -> range(0, numIterations).forEach((i) -> sumWithoutThreads.incrementAndGet()));
+        var millisWith2Threads = TimeMeasure.measureThreadsExecutionTimeMillis(List.of(new Thread(increaseInteger), new Thread(increaseInteger)));
+        var millisWithoutThreads = TimeMeasure.measureTimeMillis(() -> range(0, numIterations).forEach((i) -> sumWithoutThreads.incrementAndGet()));
         logger.info("millisWith2Threads={}", millisWith2Threads);
         logger.info("millisWithoutThreads={}", millisWithoutThreads);
         assertTrue(millisWith2Threads > millisWithoutThreads);
