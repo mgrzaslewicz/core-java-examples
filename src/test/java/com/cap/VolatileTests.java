@@ -34,7 +34,7 @@ public class VolatileTests {
                     })
             );
         }
-        TimeMeasure.waitToFinish(jobs);
+        ExecutionDuration.waitToFinish(jobs);
         // then
         logger.info("counterA={}", withVolatileField.counterA);
         logger.info("counterB={}", withVolatileField.counterB); // TODO find out why always counterB > counterA

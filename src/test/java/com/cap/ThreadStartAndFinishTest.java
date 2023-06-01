@@ -1,18 +1,18 @@
 package com.cap;
 
-import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static com.cap.ExecutionDuration.measureExecutionDuration;
 import static java.util.stream.IntStream.range;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class ThreadStartAndFinishTest {
     private static final Logger logger = LoggerFactory.getLogger(ThreadStartAndFinishTest.class);
@@ -56,11 +56,11 @@ public class ThreadStartAndFinishTest {
         var sumWithoutThreads = new AtomicInteger(0);
         var numIterations = 1_000_000;
         Runnable increaseInteger = () -> range(0, numIterations).forEach((i) -> sumWithThreads.incrementAndGet());
-        var millisWith2Threads = TimeMeasure.measureThreadsExecutionTimeMillis(List.of(new Thread(increaseInteger), new Thread(increaseInteger)));
-        var millisWithoutThreads = TimeMeasure.measureTimeMillis(() -> range(0, numIterations).forEach((i) -> sumWithoutThreads.incrementAndGet()));
-        logger.info("millisWith2Threads={}", millisWith2Threads);
-        logger.info("millisWithoutThreads={}", millisWithoutThreads);
-        assertTrue(millisWith2Threads > millisWithoutThreads);
+        var durationWith2Threads = measureExecutionDuration(new Thread(increaseInteger), new Thread(increaseInteger));
+        var durationWithoutThreads = ExecutionDuration.measureExecutionDuration(() -> range(0, numIterations).forEach((i) -> sumWithoutThreads.incrementAndGet()));
+        logger.info("millisWith2Threads={}", durationWith2Threads);
+        logger.info("millisWithoutThreads={}", durationWithoutThreads);
+        assertThat(durationWith2Threads).isGreaterThan(durationWithoutThreads);
     }
 
     @Test

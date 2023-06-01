@@ -30,7 +30,7 @@ public class VolatileVsSynchronizedTest {
                     })
             );
         }
-        TimeMeasure.waitToFinish(jobs);
+        ExecutionDuration.waitToFinish(jobs);
         // then
         assertNotEquals(expectedSum, withVolatileField.counter);
     }

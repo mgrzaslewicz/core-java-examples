@@ -1,14 +1,16 @@
 package com.cap;
 
+import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Future;
 
-public class TimeMeasure {
+public class ExecutionDuration {
 
-    public static long measureTimeMillis(Runnable runAndMeasure) {
+    public static Duration measureExecutionDuration(Runnable runAndMeasure) {
         var millisBefore = System.currentTimeMillis();
         runAndMeasure.run();
-        return System.currentTimeMillis() - millisBefore;
+        return Duration.ofMillis(System.currentTimeMillis() - millisBefore);
     }
 
     public static void startThreadsAndWaitToFinish(List<Thread> threadsToStart) {
@@ -32,8 +34,12 @@ public class TimeMeasure {
         });
     }
 
-    public static long measureThreadsExecutionTimeMillis(List<Thread> threadsToStart) {
-        return measureTimeMillis(() -> startThreadsAndWaitToFinish(threadsToStart));
+    public static Duration measureExecutionDuration(List<Thread> threadsToStart) {
+        return measureExecutionDuration(() -> startThreadsAndWaitToFinish(threadsToStart));
+    }
+
+    public static Duration measureExecutionDuration(Thread... threadsToStart) {
+        return measureExecutionDuration(Arrays.stream(threadsToStart).toList());
     }
 
 }

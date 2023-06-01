@@ -48,7 +48,7 @@ public class CountDownLatchTest {
         tasks.add(executorService.submit(producerTask));
         tasks.add(executorService.submit(producerTask));
         tasks.add(executorService.submit(consumerTask));
-        TimeMeasure.waitToFinish(tasks);
+        ExecutionDuration.waitToFinish(tasks);
         // then
         assertEquals(0, countDownLatch.getCount());
         assertTrue(finishedOnTime.get());

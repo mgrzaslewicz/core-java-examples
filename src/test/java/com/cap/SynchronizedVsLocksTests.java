@@ -1,14 +1,15 @@
 package com.cap;
 
-import java.util.List;
-import java.util.concurrent.locks.ReentrantLock;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.concurrent.locks.ReentrantLock;
+
+import static com.cap.ExecutionDuration.measureExecutionDuration;
 import static java.util.stream.IntStream.range;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class SynchronizedVsLocksTests {
     private static final Logger logger = LoggerFactory.getLogger(SynchronizedVsLocksTests.class);
@@ -19,13 +20,11 @@ public class SynchronizedVsLocksTests {
     @Test
     public void shouldLockBeSlowerThanSynchronized() {
         var numIterations = 5_000_000;
-        Runnable increaseSumWithSynchronized = () -> {
-            range(0, numIterations).forEach((i) -> {
-                synchronized (this) {
-                    sumWithSynchronized++;
-                }
-            });
-        };
+        Runnable increaseSumWithSynchronized = () -> range(0, numIterations).forEach((i) -> {
+            synchronized (this) {
+                sumWithSynchronized++;
+            }
+        });
         var t1Synchronized = new Thread(increaseSumWithSynchronized);
         var t2Synchronized = new Thread(increaseSumWithSynchronized);
 
@@ -38,15 +37,15 @@ public class SynchronizedVsLocksTests {
         var t4Lock = new Thread(increaseSumWithLock);
 
 
-        var millisSynchronized = TimeMeasure.measureThreadsExecutionTimeMillis(List.of(t1Synchronized, t2Synchronized));
-        var millisLock = TimeMeasure.measureThreadsExecutionTimeMillis(List.of(t3Lock, t4Lock));
+        var durationSynchronized = measureExecutionDuration(t1Synchronized, t2Synchronized);
+        var durationLock = measureExecutionDuration(t3Lock, t4Lock);
 
-        logger.info("sumWithSynchronized={}, took {} ms", sumWithSynchronized, millisSynchronized);
-        logger.info("sumWithLock={}, took {} ms", sumWithLock, millisLock);
+        logger.info("sumWithSynchronized={}, took {} ms", sumWithSynchronized, durationSynchronized);
+        logger.info("sumWithLock={}, took {} ms", sumWithLock, durationLock);
 
         assertEquals(numIterations * 2, sumWithSynchronized);
         assertEquals(numIterations * 2, sumWithLock);
-        assertTrue(millisSynchronized < millisLock);
+        assertThat(durationLock).isGreaterThan(durationSynchronized);
     }
 
 }
