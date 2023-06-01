@@ -10,7 +10,7 @@
     <description>Showcase for concurrency and parallelism</description>
 
     <properties>
-        <java.version>17</java.version>
+        <java.version>19</java.version>
         <junit.version>5.9.0</junit.version>
         <logback.version>1.4.4</logback.version>
     </properties>
