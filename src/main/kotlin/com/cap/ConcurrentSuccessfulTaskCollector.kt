@@ -66,11 +66,14 @@ class ConcurrentSuccessfulTaskCollector<T>(
         val executor = Executors.newFixedThreadPool(maxConcurrency) {
             Thread(it).apply { name = "$poolName-thread-${threadCount++}" }
         }
+        val completionService = ExecutorCompletionService<T>(executor)
+        val futures = mutableListOf<Future<T>>()
+        val finishLatch = CountDownLatch(maxConcurrency)
 
         val semaphore = Semaphore(maxConcurrency)
         try {
-            repeat(minOf(maxConcurrency, maxAttempts)) {
-                executor.submit {
+            repeat(maxConcurrency) {
+                futures += completionService.submit {
                     while (successfulResults.get() < minNumberOfResults && attemptCount.get() < maxAttempts) {
                         if (!shouldStop.get()) {
                             try {
@@ -89,8 +92,13 @@ class ConcurrentSuccessfulTaskCollector<T>(
                         }
                     }
                     shouldStop.set(true)
+                    logger.info { "Latch: ${finishLatch.count}" }
+                    finishLatch.countDown()
+                    null
                 }
             }
+            finishLatch.await()
+            futures.forEach { it.get(terminationTimeout.toMillis(), TimeUnit.MILLISECONDS) }
 
         } finally {
             executor.shutdown()
