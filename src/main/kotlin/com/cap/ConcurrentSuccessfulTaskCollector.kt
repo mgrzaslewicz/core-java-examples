@@ -1,6 +1,7 @@
 package com.cap
 
 import mu.KotlinLogging
+import java.time.Duration
 import java.util.concurrent.*
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -21,6 +22,7 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 class ConcurrentSuccessfulTaskCollector<T>(
     private val maxConcurrency: Int,
+    private val terminationTimeout: Duration = Duration.ofSeconds(10),
 ) {
     init {
         require(maxConcurrency > 0) { "maxConcurrency must be greater than 0" }
@@ -93,7 +95,7 @@ class ConcurrentSuccessfulTaskCollector<T>(
         } finally {
             executor.shutdown()
             try {
-                if (!executor.awaitTermination(10, TimeUnit.SECONDS)) {
+                if (!executor.awaitTermination(terminationTimeout.toMillis(), TimeUnit.MILLISECONDS)) {
                     executor.shutdownNow()
                 }
             } catch (e: InterruptedException) {
